@@ -1,371 +1,284 @@
-# Mars Devs - Образовательная платформа
+# Mars Devs - Educational Platform
 
-Веб-приложение для управления образовательным процессом с поддержкой ролей (администратор, учитель, студент), системой заданий, магазином, шахматами и тестом скорости печати.
+Full-stack web application for educational management with roles (admin, teacher, student), task system, shop, chess, and typing tests.
 
-## Технологии
+## Tech Stack
 
-- **Backend**: Django 4.x + Django REST Framework + SimpleJWT
-- **Frontend**: React + Vite + Tailwind CSS
-- **База данных**: PostgreSQL (Docker/Production) / SQLite (локально)
-- **Аутентификация**: JWT токены
-- **Production**: Gunicorn + WhiteNoise + Nginx
-
-## Структура проекта
-
-```
-mars-dashboard/
-├── backend/
-│   ├── marsdevs/           # Настройки Django проекта
-│   ├── api/                # Основное приложение
-│   │   ├── models.py       # Модели БД
-│   │   ├── serializers.py  # DRF сериализаторы
-│   │   ├── views.py        # API endpoints
-│   │   ├── urls.py         # Маршруты API
-│   │   ├── admin.py        # Админ-панель
-│   │   └── management/     # Management команды (seed)
-│   ├── manage.py
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── components/     # React компоненты
-│   │   ├── pages/          # Страницы
-│   │   ├── context/        # Контексты (Auth)
-│   │   └── api/            # API клиент (axios)
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── Dockerfile          # Development
-│   ├── Dockerfile.prod     # Production (nginx)
-│   └── nginx.conf
-├── docker-compose.yml      # Development
-├── docker-compose.prod.yml # Production
-├── .env.example
-└── README.md
-```
+| Layer | Technology |
+|-------|------------|
+| **Backend** | Django 4.x + Django REST Framework + JWT |
+| **Frontend** | React 18 + Vite + Tailwind CSS |
+| **Database** | PostgreSQL (production) / SQLite (development) |
+| **Server** | Gunicorn + WhiteNoise |
+| **Proxy** | Nginx |
+| **Container** | Docker + Docker Compose |
 
 ---
 
-## Быстрый старт
+## Quick Start
 
-### Вариант 1: Локальная разработка (рекомендуется для dev)
-
-#### Backend
+### Local Development
 
 ```bash
-# 1. Перейти в директорию backend
+# Backend
 cd backend
-
-# 2. Создать виртуальное окружение
 python -m venv venv
-
-# Windows
-venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
-
-# 3. Установить зависимости
+source venv/bin/activate  # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
-
-# 4. Создать файл .env (скопировать из .env.example)
 cp .env.example .env
-
-# 5. Применить миграции
 python manage.py migrate
-
-# 6. Создать начальные данные (admin, teacher, курсы, задания, товары)
 python manage.py seed
-
-# 7. Запустить сервер
 python manage.py runserver
-```
 
-#### Frontend
-
-```bash
-# 1. Перейти в директорию frontend
+# Frontend (new terminal)
 cd frontend
-
-# 2. Установить зависимости
 npm install
-
-# 3. Запустить dev-сервер
 npm run dev
 ```
 
-**Приложение будет доступно:**
+**Access:**
 - Frontend: http://localhost:5173
-- Backend API: http://localhost:8000/api/
-- Django Admin: http://localhost:8000/admin/
+- API: http://localhost:8000/api/
+- Admin: http://localhost:8000/admin/
 
 ---
 
-### Вариант 2: Docker Compose (Development)
+## Deployment Options
+
+### Option 1: Docker Compose (Single Server / VPS)
+
+Best for: VPS, DigitalOcean Droplet, AWS EC2, Linode
 
 ```bash
-# Запустить все сервисы
-docker-compose up --build
-
-# В отдельном терминале создать начальные данные
-docker-compose exec web python manage.py seed
-```
-
----
-
-### Вариант 3: Docker Compose (Production)
-
-```bash
-# 1. Скопировать и настроить .env файл
+# 1. Configure environment
 cp .env.example .env
-# Отредактировать .env - обязательно изменить SECRET_KEY!
+nano .env  # Set SECRET_KEY, DB_PASSWORD, domain
 
-# 2. Запустить production сборку
+# 2. Deploy
 docker-compose -f docker-compose.prod.yml up --build -d
 
-# 3. Применить миграции и создать данные
-docker-compose -f docker-compose.prod.yml exec backend python manage.py migrate
+# 3. Initialize data
 docker-compose -f docker-compose.prod.yml exec backend python manage.py seed
 
-# 4. Проверить логи
+# 4. View logs
 docker-compose -f docker-compose.prod.yml logs -f
 ```
 
-**Production приложение:**
-- Frontend + API: http://localhost (порт 80)
-- Django Admin: http://localhost/admin/
+**Architecture:**
+```
+                    ┌─────────────────────────────────────┐
+                    │           Docker Network            │
+                    │                                     │
+  Port 80 ──────────►  ┌──────────┐    ┌──────────┐      │
+                    │  │ Frontend │───►│ Backend  │      │
+                    │  │ (Nginx)  │    │ (Django) │      │
+                    │  └──────────┘    └────┬─────┘      │
+                    │                       │            │
+                    │                  ┌────▼─────┐      │
+                    │                  │ Postgres │      │
+                    │                  └──────────┘      │
+                    └─────────────────────────────────────┘
+```
 
 ---
 
-## Учётные записи по умолчанию
+### Option 2: Render.com (Recommended for beginners)
 
-После выполнения `python manage.py seed`:
+Best for: Easy deployment, free tier available
 
-| Роль | Логин | Пароль |
-|------|-------|--------|
-| Администратор | admin | admin123 |
-| Учитель | teacher | teacher123 |
+**Automatic Deployment:**
+1. Push code to GitHub
+2. Connect repo to Render
+3. Render uses `render.yaml` automatically
 
-**Студенты создаются учителем через интерфейс.**
+**Manual Setup:**
+
+1. **Create PostgreSQL Database**
+   - Render Dashboard → New → PostgreSQL
+   - Name: `marsdevs-db`
+
+2. **Create Backend Web Service**
+   - New → Web Service → Connect repo
+   - Root Directory: `backend`
+   - Runtime: Docker
+   - Set environment variables:
+     ```
+     DEBUG=False
+     USE_SQLITE=False
+     SECRET_KEY=<generate-secure-key>
+     ALLOWED_HOSTS=.onrender.com
+     DATABASE_URL=<from-database>
+     CORS_ALLOWED_ORIGINS=https://your-frontend.onrender.com
+     CSRF_TRUSTED_ORIGINS=https://your-frontend.onrender.com
+     ```
+
+3. **Create Frontend Static Site**
+   - New → Static Site → Connect repo
+   - Root Directory: `frontend`
+   - Build Command: `npm ci && npm run build`
+   - Publish Directory: `dist`
+   - Add rewrites in dashboard or use `render.yaml`
+
+**Architecture:**
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Frontend   │────►│   Backend    │────►│  PostgreSQL  │
+│ (Static Site)│     │(Web Service) │     │  (Database)  │
+└──────────────┘     └──────────────┘     └──────────────┘
+    Render              Render               Render
+```
 
 ---
 
-## Переменные окружения
+### Option 3: Railway
+
+Best for: Simple deployment, good free tier
+
+1. Create new project in Railway
+2. Add PostgreSQL plugin
+3. Add service from GitHub
+4. Set environment variables
+5. Railway auto-detects `railway.json`
+
+---
+
+### Option 4: Vercel (Frontend) + Render (Backend)
+
+Best for: Maximum performance for frontend
+
+**Frontend on Vercel:**
+```bash
+cd frontend
+vercel deploy
+```
+Update `vercel.json` with your backend URL.
+
+**Backend on Render:**
+Follow Render instructions above.
+
+---
+
+## Environment Variables
 
 ### Backend (.env)
 
-```env
-# Django
-SECRET_KEY=your-super-secret-key          # ОБЯЗАТЕЛЬНО изменить!
-DEBUG=False                                # False для production
-ALLOWED_HOSTS=localhost,your-domain.com
-
-# База данных
-USE_SQLITE=True                            # False для PostgreSQL
-DATABASE_URL=postgres://user:pass@host:5432/dbname
-
-# CORS и CSRF
-CORS_ALLOWED_ORIGINS=http://localhost:5173,https://your-domain.com
-CSRF_TRUSTED_ORIGINS=http://localhost:5173,https://your-domain.com
-
-# JWT
-JWT_ACCESS_TOKEN_LIFETIME_MINUTES=60
-JWT_REFRESH_TOKEN_LIFETIME_DAYS=7
-
-# Security (для HTTPS)
-SECURE_SSL_REDIRECT=False                  # True если есть SSL
-```
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `SECRET_KEY` | Django secret key | `generate-secure-key` |
+| `DEBUG` | Debug mode | `False` |
+| `USE_SQLITE` | Use SQLite | `False` |
+| `DATABASE_URL` | PostgreSQL URL | `postgres://...` |
+| `ALLOWED_HOSTS` | Allowed domains | `yourdomain.com` |
+| `CORS_ALLOWED_ORIGINS` | Frontend URLs | `https://yourdomain.com` |
+| `CSRF_TRUSTED_ORIGINS` | Trusted origins | `https://yourdomain.com` |
 
 ### Frontend (.env)
 
-```env
-VITE_API_URL=/api
-```
-
-### Docker Compose (.env в корне)
-
-```env
-SECRET_KEY=your-super-secret-key
-DB_NAME=marsdevs_db
-DB_USER=marsdevs
-DB_PASSWORD=secure-password
-ALLOWED_HOSTS=localhost,your-domain.com
-CORS_ALLOWED_ORIGINS=http://localhost,https://your-domain.com
-CSRF_TRUSTED_ORIGINS=http://localhost,https://your-domain.com
-FRONTEND_PORT=80
-```
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_API_URL` | API base URL | `/api` or `https://api.domain.com/api` |
 
 ---
 
-## Деплой
+## Default Accounts
 
-### VPS (Ubuntu/Debian)
+After running `python manage.py seed`:
 
-```bash
-# 1. Установить Docker и Docker Compose
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `admin` | `admin123` |
+| Teacher | `teacher` | `teacher123` |
 
-# 2. Клонировать репозиторий
-git clone <repository-url>
-cd mars-dashboard
-
-# 3. Настроить окружение
-cp .env.example .env
-nano .env  # Изменить SECRET_KEY и другие настройки
-
-# 4. Запустить
-docker-compose -f docker-compose.prod.yml up --build -d
-
-# 5. Инициализировать данные
-docker-compose -f docker-compose.prod.yml exec backend python manage.py migrate
-docker-compose -f docker-compose.prod.yml exec backend python manage.py seed
-
-# 6. (Опционально) Настроить SSL с Certbot
-# Добавить reverse proxy (nginx/traefik) перед контейнерами
-```
-
-### Railway
-
-1. Создать новый проект в Railway
-2. Добавить PostgreSQL сервис
-3. Добавить сервис из GitHub репозитория
-4. Настроить переменные окружения:
-   - `SECRET_KEY`
-   - `DEBUG=False`
-   - `USE_SQLITE=False`
-   - `DATABASE_URL` (автоматически из PostgreSQL)
-   - `ALLOWED_HOSTS=*.railway.app`
-   - `CORS_ALLOWED_ORIGINS=https://your-app.railway.app`
-5. Настроить Start Command: `gunicorn marsdevs.wsgi:application --bind 0.0.0.0:$PORT`
-
-### Render
-
-1. Создать Web Service из GitHub
-2. Выбрать Docker environment
-3. Добавить PostgreSQL database
-4. Настроить Environment Variables
-5. Build Command: автоматически из Dockerfile
-6. Start Command: `gunicorn marsdevs.wsgi:application --bind 0.0.0.0:$PORT`
+Students are created by teachers through the interface.
 
 ---
 
 ## API Endpoints
 
-### Аутентификация
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/auth/login/` | Login |
+| `POST /api/auth/refresh/` | Refresh token |
+| `GET /api/profile/` | Get profile |
+| `GET /api/tasks/` | List tasks |
+| `GET /api/shop/products/` | Shop products |
+| `POST /api/chess/start/` | Start chess game |
 
-| Метод | URL | Описание |
-|-------|-----|----------|
-| POST | `/api/auth/login/` | Получить JWT токены |
-| POST | `/api/auth/refresh/` | Обновить access токен |
-
-### Профиль
-
-| Метод | URL | Описание |
-|-------|-----|----------|
-| GET | `/api/profile/` | Получить профиль |
-| PATCH | `/api/profile/` | Обновить профиль |
-
-### Студенты (для учителей)
-
-| Метод | URL | Описание |
-|-------|-----|----------|
-| GET | `/api/students/` | Список студентов |
-| POST | `/api/students/` | Создать студента |
-| GET | `/api/students/{id}/` | Информация о студенте |
-| PATCH | `/api/students/{id}/` | Обновить студента |
-| GET | `/api/students/{id}/coins/` | История монет |
-| POST | `/api/students/{id}/coins/` | Начислить/списать монеты |
-
-### Задания
-
-| Метод | URL | Описание |
-|-------|-----|----------|
-| GET | `/api/tasks/` | Список заданий |
-| POST | `/api/tasks/{id}/submit/` | Отправить задание |
-| GET | `/api/submissions/` | Список отправок (учитель) |
-| POST | `/api/submissions/{id}/review/` | Проверить задание |
-| GET | `/api/my-submissions/` | Мои отправки (студент) |
-
-### Магазин
-
-| Метод | URL | Описание |
-|-------|-----|----------|
-| GET | `/api/shop/products/` | Список товаров |
-| POST | `/api/shop/buy/` | Купить товар |
-| GET | `/api/shop/purchases/` | История покупок |
-
-### Шахматы
-
-| Метод | URL | Описание |
-|-------|-----|----------|
-| POST | `/api/chess/start/` | Начать игру |
-| POST | `/api/chess/finish/` | Завершить игру |
-| GET | `/api/chess/my-games/` | Мои игры и статистика |
-| POST | `/api/chess/invite/` | Отправить приглашение PvP |
-| GET | `/api/chess/my-invites/` | Мои приглашения |
-| POST | `/api/chess/respond-invite/` | Ответить на приглашение |
-| GET | `/api/chess/game/{id}/` | Состояние игры |
-| POST | `/api/chess/game/{id}/` | Сделать ход |
+Full API documentation available at `/admin/` after login.
 
 ---
 
-## Команды управления
+## Project Structure
 
-```bash
-# Создание начальных данных
-python manage.py seed
-
-# Или полная версия
-python manage.py seed_data --admin-password=secret --teacher-password=secret
-
-# Миграции
-python manage.py migrate
-
-# Сбор статики (для production)
-python manage.py collectstatic --noinput
-
-# Создание суперпользователя
-python manage.py createsuperuser
+```
+mars-dashboard/
+├── backend/
+│   ├── api/                 # Main Django app
+│   ├── marsdevs/            # Django settings
+│   ├── Dockerfile           # Backend Docker config
+│   ├── requirements.txt     # Python dependencies
+│   └── .env.example         # Environment template
+├── frontend/
+│   ├── src/                 # React source code
+│   ├── Dockerfile.prod      # Frontend Docker config
+│   ├── nginx.conf           # Nginx configuration
+│   └── package.json         # Node dependencies
+├── docker-compose.yml       # Development compose
+├── docker-compose.prod.yml  # Production compose
+├── render.yaml              # Render deployment
+├── railway.json             # Railway deployment
+├── .env.example             # Root env template
+└── README.md
 ```
 
 ---
 
-## Разработка
+## CI/CD
 
-### Сборка frontend для production
+GitHub Actions workflow included (`.github/workflows/deploy.yml`):
+- Runs tests on every push
+- Builds Docker images
+- Pushes to GitHub Container Registry
 
-```bash
-cd frontend
-npm run build
-# Файлы будут в папке dist/
-```
+---
 
-### Проверка линтером
-
-```bash
-cd frontend
-npm run lint
-```
-
-### Тестирование backend
+## Commands
 
 ```bash
-cd backend
-python manage.py test
+# Development
+python manage.py runserver      # Start Django dev server
+npm run dev                     # Start Vite dev server
+
+# Production
+python manage.py seed           # Create initial data
+python manage.py migrate        # Run migrations
+python manage.py collectstatic  # Collect static files
+
+# Docker
+docker-compose up --build                           # Development
+docker-compose -f docker-compose.prod.yml up -d     # Production
+docker-compose logs -f                              # View logs
 ```
 
 ---
 
-## Безопасность (Production)
+## Troubleshooting
 
-- Всегда используйте уникальный `SECRET_KEY`
-- Установите `DEBUG=False`
-- Настройте HTTPS (SSL сертификат)
-- Используйте сильные пароли для базы данных
-- Регулярно обновляйте зависимости
+### "Connection refused" on Render
+- Check DATABASE_URL is set correctly
+- Ensure PostgreSQL addon is attached
+- Check logs for migration errors
+
+### CORS errors
+- Verify CORS_ALLOWED_ORIGINS includes your frontend URL
+- Include protocol (https://)
+
+### Static files not loading
+- Run `collectstatic` after deploy
+- Check STATIC_URL and STATIC_ROOT settings
 
 ---
 
-## Лицензия
+## License
 
 MIT

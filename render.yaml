@@ -1,56 +1,107 @@
 # =============================================================================
-# RENDER.COM CONFIGURATION
+# RENDER.COM DEPLOYMENT CONFIGURATION
 # =============================================================================
-# Deploy to Render: https://render.com/docs/infrastructure-as-code
+# 
+# Deployment: Backend (Web Service) + Frontend (Static Site) + PostgreSQL
+#
+# Usage:
+#   1. Push to GitHub
+#   2. Connect repo to Render
+#   3. Render auto-deploys using this config
+#
+# Manual setup:
+#   1. Create PostgreSQL database
+#   2. Create Backend Web Service
+#   3. Create Frontend Static Site
+#   4. Set environment variables
+#
+# =============================================================================
 
 services:
-  # Backend API
+  # ===========================================================================
+  # Backend API (Django)
+  # ===========================================================================
   - type: web
-    name: marsdevs-backend
+    name: marsdevs-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
+    region: frankfurt  # Change to your preferred region
+    plan: free  # or starter, standard, etc.
+    healthCheckPath: /api/auth/login/
     envVars:
+      # Django settings
       - key: DEBUG
-        value: "False"
-      - key: USE_SQLITE
         value: "False"
       - key: SECRET_KEY
         generateValue: true
       - key: ALLOWED_HOSTS
         value: ".onrender.com,localhost"
-      - key: CORS_ALLOWED_ORIGINS
-        sync: false
-      - key: CSRF_TRUSTED_ORIGINS
-        sync: false
+      - key: USE_SQLITE
+        value: "False"
+      
+      # Database (auto-linked)
       - key: DATABASE_URL
         fromDatabase:
           name: marsdevs-db
           property: connectionString
-    healthCheckPath: /api/auth/login/
-    
-  # Frontend (Static Site)
+      
+      # CORS - UPDATE with your frontend URL after deploy
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://marsdevs-frontend.onrender.com"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://marsdevs-frontend.onrender.com,https://marsdevs-api.onrender.com"
+      
+      # JWT
+      - key: JWT_ACCESS_TOKEN_LIFETIME_MINUTES
+        value: "60"
+      - key: JWT_REFRESH_TOKEN_LIFETIME_DAYS
+        value: "7"
+
+  # ===========================================================================
+  # Frontend (React Static Site)
+  # ===========================================================================
   - type: web
     name: marsdevs-frontend
     runtime: static
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: ./frontend/dist
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: frontend/dist
+    pullRequestPreviewsEnabled: true
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
     routes:
+      # API proxy to backend
       - type: rewrite
         source: /api/*
-        destination: https://marsdevs-backend.onrender.com/api/*
+        destination: https://marsdevs-api.onrender.com/api/*
+      # Media files proxy
       - type: rewrite
         source: /media/*
-        destination: https://marsdevs-backend.onrender.com/media/*
+        destination: https://marsdevs-api.onrender.com/media/*
+      # Static files proxy (Django admin)
+      - type: rewrite
+        source: /static/*
+        destination: https://marsdevs-api.onrender.com/static/*
+      # Admin proxy
       - type: rewrite
         source: /admin/*
-        destination: https://marsdevs-backend.onrender.com/admin/*
+        destination: https://marsdevs-api.onrender.com/admin/*
+      # SPA fallback
       - type: rewrite
         source: /*
         destination: /index.html
 
+# =============================================================================
+# Database
+# =============================================================================
 databases:
   - name: marsdevs-db
-    plan: free
+    plan: free  # or starter, standard, etc.
     databaseName: marsdevs_db
     user: marsdevs
+    region: frankfurt  # Same as backend
