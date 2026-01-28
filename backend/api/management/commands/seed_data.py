@@ -1,10 +1,10 @@
 """
 Management команда для создания начальных данных.
-Создаёт администратора, учителя, курсы и примеры заданий.
+Создаёт администратора, учителя, курсы, примеры заданий и товары магазина.
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
-from api.models import Course, Task
+from api.models import Course, Task, Product
 from datetime import time
 
 User = get_user_model()
@@ -152,6 +152,50 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS(f'✓ Задание создано: {task.title}'))
             else:
                 self.stdout.write(self.style.WARNING(f'! Задание уже существует: {task.title}'))
+
+        # Создаём товары магазина
+        products_data = [
+            {
+                'name': 'Стикерпак "Mars Devs"',
+                'description': 'Набор крутых стикеров с логотипом Mars Devs для ноутбука',
+                'price': 100,
+                'quantity': 50,
+            },
+            {
+                'name': 'Футболка "I code on Mars"',
+                'description': 'Чёрная футболка с принтом для настоящих программистов',
+                'price': 500,
+                'quantity': 20,
+            },
+            {
+                'name': 'Кружка программиста',
+                'description': 'Керамическая кружка 350мл с надписью "But it works on my machine"',
+                'price': 200,
+                'quantity': 30,
+            },
+            {
+                'name': 'Дополнительный час игры',
+                'description': 'Сертификат на дополнительный час свободной игры после занятий',
+                'price': 150,
+                'quantity': 100,
+            },
+            {
+                'name': 'Книга "Python для начинающих"',
+                'description': 'Отличная книга для изучения Python с нуля',
+                'price': 300,
+                'quantity': 10,
+            },
+        ]
+
+        for product_data in products_data:
+            product, created = Product.objects.get_or_create(
+                name=product_data['name'],
+                defaults=product_data
+            )
+            if created:
+                self.stdout.write(self.style.SUCCESS(f'✓ Товар создан: {product.name}'))
+            else:
+                self.stdout.write(self.style.WARNING(f'! Товар уже существует: {product.name}'))
 
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS('=' * 50))

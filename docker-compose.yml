@@ -1,11 +1,18 @@
-# Docker Compose для Mars Devs
+# =============================================================================
+# DOCKER COMPOSE - DEVELOPMENT
+# =============================================================================
+# Использование: docker-compose up --build
+# =============================================================================
+
 version: '3.8'
 
 services:
-  # База данных PostgreSQL
+  # ===========================================================================
+  # PostgreSQL Database
+  # ===========================================================================
   db:
     image: postgres:15-alpine
-    container_name: marsdevs_db
+    container_name: marsdevs_db_dev
     environment:
       POSTGRES_DB: marsdevs_db
       POSTGRES_USER: marsdevs
@@ -20,16 +27,20 @@ services:
       timeout: 5s
       retries: 5
 
-  # Django Backend
-  web:
+  # ===========================================================================
+  # Django Backend (Development)
+  # ===========================================================================
+  backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: marsdevs_web
+    container_name: marsdevs_backend_dev
+    # Переопределяем команду для dev режима
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
              python manage.py runserver 0.0.0.0:8000"
+    user: root  # Для разработки с volume mounts
     volumes:
       - ./backend:/app
       - media_data:/app/media
@@ -42,17 +53,20 @@ services:
       - USE_SQLITE=False
       - DATABASE_URL=postgres://marsdevs:marsdevs123@db:5432/marsdevs_db
       - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000
-      - ALLOWED_HOSTS=localhost,127.0.0.1,web
+      - CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend
     depends_on:
       db:
         condition: service_healthy
 
-  # Frontend (опционально для продакшена)
+  # ===========================================================================
+  # React Frontend (Development - Vite dev server)
+  # ===========================================================================
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: marsdevs_frontend
+    container_name: marsdevs_frontend_dev
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -61,7 +75,7 @@ services:
     environment:
       - VITE_API_URL=http://localhost:8000/api
     depends_on:
-      - web
+      - backend
 
 volumes:
   postgres_data:

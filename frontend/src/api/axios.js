@@ -3,13 +3,15 @@
  * Включает interceptors для JWT токенов.
  */
 import axios from 'axios';
+import { API_BASE_URL, API_TIMEOUT } from '../config/api';
 
 // Базовый URL API
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = API_BASE_URL;
 
 // Создание экземпляра axios
 const api = axios.create({
   baseURL: API_URL,
+  timeout: API_TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },

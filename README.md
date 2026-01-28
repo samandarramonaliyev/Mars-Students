@@ -1,13 +1,14 @@
 # Mars Devs - Образовательная платформа
 
-Веб-приложение для управления образовательным процессом с поддержкой ролей (администратор, учитель, студент), системой заданий, монет и тестом скорости печати.
+Веб-приложение для управления образовательным процессом с поддержкой ролей (администратор, учитель, студент), системой заданий, магазином, шахматами и тестом скорости печати.
 
 ## Технологии
 
 - **Backend**: Django 4.x + Django REST Framework + SimpleJWT
 - **Frontend**: React + Vite + Tailwind CSS
-- **База данных**: PostgreSQL (Docker) / SQLite (локально)
+- **База данных**: PostgreSQL (Docker/Production) / SQLite (локально)
 - **Аутентификация**: JWT токены
+- **Production**: Gunicorn + WhiteNoise + Nginx
 
 ## Структура проекта
 
@@ -15,17 +16,13 @@
 mars-dashboard/
 ├── backend/
 │   ├── marsdevs/           # Настройки Django проекта
-│   │   ├── settings.py
-│   │   ├── urls.py
-│   │   └── ...
 │   ├── api/                # Основное приложение
 │   │   ├── models.py       # Модели БД
 │   │   ├── serializers.py  # DRF сериализаторы
 │   │   ├── views.py        # API endpoints
 │   │   ├── urls.py         # Маршруты API
 │   │   ├── admin.py        # Админ-панель
-│   │   ├── permissions.py  # Права доступа
-│   │   └── management/     # Management команды
+│   │   └── management/     # Management команды (seed)
 │   ├── manage.py
 │   ├── requirements.txt
 │   ├── Dockerfile
@@ -35,20 +32,23 @@ mars-dashboard/
 │   │   ├── components/     # React компоненты
 │   │   ├── pages/          # Страницы
 │   │   ├── context/        # Контексты (Auth)
-│   │   ├── api/            # API клиент
-│   │   ├── App.jsx
-│   │   └── main.jsx
+│   │   └── api/            # API клиент (axios)
 │   ├── package.json
 │   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── Dockerfile
-├── docker-compose.yml
+│   ├── Dockerfile          # Development
+│   ├── Dockerfile.prod     # Production (nginx)
+│   └── nginx.conf
+├── docker-compose.yml      # Development
+├── docker-compose.prod.yml # Production
+├── .env.example
 └── README.md
 ```
 
+---
+
 ## Быстрый старт
 
-### Вариант 1: Локальная разработка (рекомендуется)
+### Вариант 1: Локальная разработка (рекомендуется для dev)
 
 #### Backend
 
@@ -73,8 +73,8 @@ cp .env.example .env
 # 5. Применить миграции
 python manage.py migrate
 
-# 6. Создать начальные данные (admin, teacher, курсы, задания)
-python manage.py seed_data
+# 6. Создать начальные данные (admin, teacher, курсы, задания, товары)
+python manage.py seed
 
 # 7. Запустить сервер
 python manage.py runserver
@@ -93,31 +93,161 @@ npm install
 npm run dev
 ```
 
-Приложение будет доступно:
+**Приложение будет доступно:**
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8000/api/
 - Django Admin: http://localhost:8000/admin/
 
-### Вариант 2: Docker Compose
+---
+
+### Вариант 2: Docker Compose (Development)
 
 ```bash
 # Запустить все сервисы
 docker-compose up --build
 
 # В отдельном терминале создать начальные данные
-docker-compose exec web python manage.py seed_data
+docker-compose exec web python manage.py seed
 ```
+
+---
+
+### Вариант 3: Docker Compose (Production)
+
+```bash
+# 1. Скопировать и настроить .env файл
+cp .env.example .env
+# Отредактировать .env - обязательно изменить SECRET_KEY!
+
+# 2. Запустить production сборку
+docker-compose -f docker-compose.prod.yml up --build -d
+
+# 3. Применить миграции и создать данные
+docker-compose -f docker-compose.prod.yml exec backend python manage.py migrate
+docker-compose -f docker-compose.prod.yml exec backend python manage.py seed
+
+# 4. Проверить логи
+docker-compose -f docker-compose.prod.yml logs -f
+```
+
+**Production приложение:**
+- Frontend + API: http://localhost (порт 80)
+- Django Admin: http://localhost/admin/
+
+---
 
 ## Учётные записи по умолчанию
 
-После выполнения `python manage.py seed_data`:
+После выполнения `python manage.py seed`:
 
 | Роль | Логин | Пароль |
 |------|-------|--------|
 | Администратор | admin | admin123 |
 | Учитель | teacher | teacher123 |
 
-Студенты создаются учителем через интерфейс.
+**Студенты создаются учителем через интерфейс.**
+
+---
+
+## Переменные окружения
+
+### Backend (.env)
+
+```env
+# Django
+SECRET_KEY=your-super-secret-key          # ОБЯЗАТЕЛЬНО изменить!
+DEBUG=False                                # False для production
+ALLOWED_HOSTS=localhost,your-domain.com
+
+# База данных
+USE_SQLITE=True                            # False для PostgreSQL
+DATABASE_URL=postgres://user:pass@host:5432/dbname
+
+# CORS и CSRF
+CORS_ALLOWED_ORIGINS=http://localhost:5173,https://your-domain.com
+CSRF_TRUSTED_ORIGINS=http://localhost:5173,https://your-domain.com
+
+# JWT
+JWT_ACCESS_TOKEN_LIFETIME_MINUTES=60
+JWT_REFRESH_TOKEN_LIFETIME_DAYS=7
+
+# Security (для HTTPS)
+SECURE_SSL_REDIRECT=False                  # True если есть SSL
+```
+
+### Frontend (.env)
+
+```env
+VITE_API_URL=/api
+```
+
+### Docker Compose (.env в корне)
+
+```env
+SECRET_KEY=your-super-secret-key
+DB_NAME=marsdevs_db
+DB_USER=marsdevs
+DB_PASSWORD=secure-password
+ALLOWED_HOSTS=localhost,your-domain.com
+CORS_ALLOWED_ORIGINS=http://localhost,https://your-domain.com
+CSRF_TRUSTED_ORIGINS=http://localhost,https://your-domain.com
+FRONTEND_PORT=80
+```
+
+---
+
+## Деплой
+
+### VPS (Ubuntu/Debian)
+
+```bash
+# 1. Установить Docker и Docker Compose
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+
+# 2. Клонировать репозиторий
+git clone <repository-url>
+cd mars-dashboard
+
+# 3. Настроить окружение
+cp .env.example .env
+nano .env  # Изменить SECRET_KEY и другие настройки
+
+# 4. Запустить
+docker-compose -f docker-compose.prod.yml up --build -d
+
+# 5. Инициализировать данные
+docker-compose -f docker-compose.prod.yml exec backend python manage.py migrate
+docker-compose -f docker-compose.prod.yml exec backend python manage.py seed
+
+# 6. (Опционально) Настроить SSL с Certbot
+# Добавить reverse proxy (nginx/traefik) перед контейнерами
+```
+
+### Railway
+
+1. Создать новый проект в Railway
+2. Добавить PostgreSQL сервис
+3. Добавить сервис из GitHub репозитория
+4. Настроить переменные окружения:
+   - `SECRET_KEY`
+   - `DEBUG=False`
+   - `USE_SQLITE=False`
+   - `DATABASE_URL` (автоматически из PostgreSQL)
+   - `ALLOWED_HOSTS=*.railway.app`
+   - `CORS_ALLOWED_ORIGINS=https://your-app.railway.app`
+5. Настроить Start Command: `gunicorn marsdevs.wsgi:application --bind 0.0.0.0:$PORT`
+
+### Render
+
+1. Создать Web Service из GitHub
+2. Выбрать Docker environment
+3. Добавить PostgreSQL database
+4. Настроить Environment Variables
+5. Build Command: автоматически из Dockerfile
+6. Start Command: `gunicorn marsdevs.wsgi:application --bind 0.0.0.0:$PORT`
+
+---
 
 ## API Endpoints
 
@@ -133,7 +263,7 @@ docker-compose exec web python manage.py seed_data
 | Метод | URL | Описание |
 |-------|-----|----------|
 | GET | `/api/profile/` | Получить профиль |
-| PATCH | `/api/profile/` | Обновить профиль (nickname, avatar, phone) |
+| PATCH | `/api/profile/` | Обновить профиль |
 
 ### Студенты (для учителей)
 
@@ -143,7 +273,7 @@ docker-compose exec web python manage.py seed_data
 | POST | `/api/students/` | Создать студента |
 | GET | `/api/students/{id}/` | Информация о студенте |
 | PATCH | `/api/students/{id}/` | Обновить студента |
-| GET | `/api/students/{id}/coins/` | История монет студента |
+| GET | `/api/students/{id}/coins/` | История монет |
 | POST | `/api/students/{id}/coins/` | Начислить/списать монеты |
 
 ### Задания
@@ -151,309 +281,90 @@ docker-compose exec web python manage.py seed_data
 | Метод | URL | Описание |
 |-------|-----|----------|
 | GET | `/api/tasks/` | Список заданий |
-| POST | `/api/tasks/{id}/submit/` | Отправить задание (студент) |
+| POST | `/api/tasks/{id}/submit/` | Отправить задание |
 | GET | `/api/submissions/` | Список отправок (учитель) |
-| POST | `/api/submissions/{id}/review/` | Проверить задание (учитель) |
+| POST | `/api/submissions/{id}/review/` | Проверить задание |
 | GET | `/api/my-submissions/` | Мои отправки (студент) |
 
-### Монеты и история
+### Магазин
 
 | Метод | URL | Описание |
 |-------|-----|----------|
-| GET | `/api/my-coins/` | Мои транзакции монет |
+| GET | `/api/shop/products/` | Список товаров |
+| POST | `/api/shop/buy/` | Купить товар |
+| GET | `/api/shop/purchases/` | История покупок |
 
-### Typing (тест печати)
-
-| Метод | URL | Описание |
-|-------|-----|----------|
-| GET | `/api/typing-results/` | Мои результаты |
-| POST | `/api/typing-results/` | Сохранить результат |
-
-### Шахматы (ручная запись учителем)
-
-| Метод | URL | Описание |
-|-------|-----|----------|
-| GET | `/api/chess-history/` | История игр (ручная) |
-| POST | `/api/chess-history/` | Добавить игру (учитель) |
-
-### Шахматы (реальная игра)
+### Шахматы
 
 | Метод | URL | Описание |
 |-------|-----|----------|
 | POST | `/api/chess/start/` | Начать игру |
 | POST | `/api/chess/finish/` | Завершить игру |
 | GET | `/api/chess/my-games/` | Мои игры и статистика |
-| GET | `/api/chess/online-students/` | Список студентов для PvP |
-| POST | `/api/chess/invite/` | Отправить приглашение |
+| POST | `/api/chess/invite/` | Отправить приглашение PvP |
 | GET | `/api/chess/my-invites/` | Мои приглашения |
 | POST | `/api/chess/respond-invite/` | Ответить на приглашение |
-| POST | `/api/chess/cancel-invite/` | Отменить приглашение |
-| GET | `/api/chess/game/{id}/` | Состояние игры (PvP) |
-| POST | `/api/chess/game/{id}/` | Сделать ход (PvP) |
+| GET | `/api/chess/game/{id}/` | Состояние игры |
+| POST | `/api/chess/game/{id}/` | Сделать ход |
 
-### Статистика учителя
+---
 
-| Метод | URL | Описание |
-|-------|-----|----------|
-| GET | `/api/teacher/stats/` | Статистика учителя |
-
-## Пример запроса авторизации
+## Команды управления
 
 ```bash
-curl -X POST http://localhost:8000/api/auth/login/ \
-  -H "Content-Type: application/json" \
-  -d '{"username": "teacher", "password": "teacher123", "expected_role": "TEACHER"}'
+# Создание начальных данных
+python manage.py seed
+
+# Или полная версия
+python manage.py seed_data --admin-password=secret --teacher-password=secret
+
+# Миграции
+python manage.py migrate
+
+# Сбор статики (для production)
+python manage.py collectstatic --noinput
+
+# Создание суперпользователя
+python manage.py createsuperuser
 ```
 
-Ответ:
-```json
-{
-  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "user": {
-    "id": 2,
-    "username": "teacher",
-    "role": "TEACHER",
-    ...
-  }
-}
+---
+
+## Разработка
+
+### Сборка frontend для production
+
+```bash
+cd frontend
+npm run build
+# Файлы будут в папке dist/
 ```
 
-## Безопасность
+### Проверка линтером
 
-### Текущая реализация (для разработки)
-
-JWT токены хранятся в `localStorage`. Это упрощает разработку, но делает приложение уязвимым к XSS атакам.
-
-### Рекомендации для продакшена
-
-Для безопасного хранения токенов в продакшене:
-
-1. **Настроить httpOnly cookies на backend:**
-
-```python
-# settings.py
-SIMPLE_JWT = {
-    ...
-    'AUTH_COOKIE': 'access_token',
-    'AUTH_COOKIE_SECURE': True,  # Только HTTPS
-    'AUTH_COOKIE_HTTP_ONLY': True,
-    'AUTH_COOKIE_SAMESITE': 'Lax',
-}
+```bash
+cd frontend
+npm run lint
 ```
 
-2. **Изменить view для установки cookie:**
-
-```python
-from rest_framework_simplejwt.tokens import RefreshToken
-
-def login_view(request):
-    ...
-    response = Response({"user": user_data})
-    response.set_cookie(
-        'access_token',
-        str(refresh.access_token),
-        httponly=True,
-        secure=True,
-        samesite='Lax',
-        max_age=3600
-    )
-    return response
-```
-
-3. **Настроить CORS:**
-
-```python
-# settings.py
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = ['https://your-frontend-domain.com']
-```
-
-4. **Включить CSRF защиту для API:**
-
-```python
-CSRF_COOKIE_HTTPONLY = True
-CSRF_TRUSTED_ORIGINS = ['https://your-frontend-domain.com']
-```
-
-## Тестирование
-
-### Backend тесты
+### Тестирование backend
 
 ```bash
 cd backend
 python manage.py test
 ```
 
-### Запуск конкретных тестов
+---
 
-```bash
-python manage.py test api.tests.AuthenticationTests
-python manage.py test api.tests.CoinTransactionTests
-```
+## Безопасность (Production)
 
-## Модели данных
+- Всегда используйте уникальный `SECRET_KEY`
+- Установите `DEBUG=False`
+- Настройте HTTPS (SSL сертификат)
+- Используйте сильные пароли для базы данных
+- Регулярно обновляйте зависимости
 
-### User (Пользователь)
-- `username`, `password`, `email`, `first_name`, `last_name`
-- `role`: ADMIN / TEACHER / STUDENT
-- `phone`, `avatar`, `nickname`
-- `student_group`: FRONTEND / BACKEND / NONE
-- `balance` (монеты)
-- `parent_info` (для студентов)
-- `assigned_courses` (для учителей)
-- `created_by` (кто создал студента)
-
-### Course (Курс)
-- `name`, `time`, `day_of_week`, `description`
-
-### Task (Задание)
-- `title`, `description`
-- `target_group`: FRONTEND / BACKEND / ALL
-- `reward_coins`, `deadline`, `is_active`
-
-### TaskSubmission (Отправка задания)
-- `task`, `student`
-- `text_answer`, `file_answer`
-- `status`: PENDING / APPROVED / REJECTED
-- `grade`, `teacher_comment`, `coins_awarded`
-
-### CoinTransaction (Транзакция монет)
-- `user`, `amount`, `reason`
-- `source`: TASK / TEACHER / ADMIN / CHESS / OTHER
-- `balance_after`, `created_by`
-
-### TypingResult (Результат печати)
-- `user`, `wpm`, `accuracy`
-- `characters_typed`, `errors`, `duration_seconds`
-
-### ChessGameHistory (История шахмат - ручная запись)
-- `user`, `opponent_name`
-- `result`: WIN / LOSS / DRAW
-- `notes`, `played_at`
-
-### ChessGame (Шахматная партия - реальная игра)
-- `player` - игрок
-- `opponent_type`: BOT / STUDENT
-- `bot_level`: easy / medium / hard (для игры с ботом)
-- `opponent` - противник (для PvP)
-- `status`: IN_PROGRESS / FINISHED / ABANDONED
-- `result`: WIN / LOSE / DRAW
-- `coins_earned` - заработанные монеты
-- `fen_position` - позиция на доске
-- `white_player` - кто играет белыми
-- `started_at`, `finished_at`
-
-### ChessInvite (Приглашение в шахматы)
-- `from_player`, `to_player`
-- `status`: PENDING / ACCEPTED / DECLINED / EXPIRED
-- `game` - созданная игра
-
-## Переменные окружения
-
-```env
-# Django
-SECRET_KEY=your-secret-key
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-
-# База данных
-USE_SQLITE=True  # False для PostgreSQL
-DATABASE_URL=postgres://user:pass@host:5432/dbname
-
-# CORS
-CORS_ALLOWED_ORIGINS=http://localhost:5173
-```
-
-## Шахматы (Chess Arena)
-
-### Описание
-
-Студенты могут играть в шахматы и зарабатывать монеты. Доступно два режима:
-
-1. **Игра с ботом** - три уровня сложности
-2. **Игра со студентом** (PvP) - приглашения через polling
-
-### Как играть
-
-1. Откройте страницу шахмат (`/chess`) или нажмите кнопку ♟️ в навигации
-2. Выберите режим игры:
-   - **🤖 Играть с ботом** - выберите уровень сложности
-   - **👤 Играть со студентом** - отправьте приглашение другому студенту
-3. Играйте, делая ходы на доске
-4. После завершения партии получите награду
-
-### Уровни бота
-
-| Уровень | Поведение | Награда за победу |
-|---------|-----------|-------------------|
-| **Легкий (Easy)** | Случайные допустимые ходы | 45 монет |
-| **Средний (Medium)** | Приоритет взятий | 75 монет |
-| **Сложный (Hard)** | Minimax алгоритм (глубина 2-3) | 100 монет |
-
-### Награды
-
-#### Игра с ботом
-| Результат | Easy | Medium | Hard |
-|-----------|------|--------|------|
-| Победа | 45 | 75 | 100 |
-| Ничья | 10 | 20 | 30 |
-| Поражение | 0 | 0 | 0 |
-
-#### Игра со студентом (PvP)
-| Результат | Монеты |
-|-----------|--------|
-| Победа | 50 |
-| Ничья | 20 |
-| Поражение | 0 |
-
-### Технические детали
-
-- **Шахматная логика**: `chess.js` - проверка валидности ходов, определение мата/пата
-- **Отображение доски**: `react-chessboard` - интерактивная доска
-- **PvP синхронизация**: HTTP polling каждые 3 секунды
-- **Хранение позиции**: FEN-нотация в базе данных
-
-### API примеры
-
-#### Начать игру с ботом
-
-```bash
-curl -X POST http://localhost:8000/api/chess/start/ \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"opponent_type": "BOT", "bot_level": "medium"}'
-```
-
-#### Завершить игру
-
-```bash
-curl -X POST http://localhost:8000/api/chess/finish/ \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"game_id": 1, "result": "WIN"}'
-```
-
-#### Отправить приглашение
-
-```bash
-curl -X POST http://localhost:8000/api/chess/invite/ \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"to_player_id": 5}'
-```
-
-### Просмотр истории
-
-История всех сыгранных партий доступна:
-- На странице профиля (вкладка "Шахматы")
-- Через API: `GET /api/chess/my-games/`
-
-Статистика включает:
-- Общее количество игр
-- Победы / поражения / ничьи
-- Всего заработано монет
-- Игры с ботом / PvP
+---
 
 ## Лицензия
 
