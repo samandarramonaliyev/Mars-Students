@@ -28,7 +28,7 @@ services:
     dockerContext: ./backend
     region: frankfurt  # Change to your preferred region
     plan: free  # or starter, standard, etc.
-    healthCheckPath: /api/auth/login/
+    healthCheckPath: /health/
     envVars:
       # Django settings
       - key: DEBUG
