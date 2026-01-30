@@ -14,7 +14,8 @@ from django.db.models import Q, Sum
 from .models import (
     User, Course, Task, TaskSubmission,
     CoinTransaction, TypingResult, ChessGameHistory,
-    ChessGame, ChessInvite, Product, ShopPurchase
+    ChessGame, ChessInvite, Product, ShopPurchase,
+    CoinNotification
 )
 from .serializers import (
     UserSerializer, LoginSerializer, StudentCreateSerializer,
@@ -29,7 +30,8 @@ from .serializers import (
     ChessGameMoveSerializer, OnlineStudentSerializer, ChessInviteSerializer,
     ChessInviteCreateSerializer, ChessInviteResponseSerializer,
     # Сериализаторы для магазина
-    ProductSerializer, ShopPurchaseSerializer, BuyProductSerializer
+    ProductSerializer, ShopPurchaseSerializer, BuyProductSerializer,
+    CoinNotificationSerializer
 )
 from .permissions import IsTeacher, IsStudent, IsTeacherOrAdmin, IsOwnerOrTeacher
 from datetime import timedelta
@@ -240,6 +242,14 @@ class StudentCoinsView(APIView):
             created_by=request.user
         )
         
+        # Создаём уведомление о начислении coin
+        if amount > 0:
+            CoinNotification.objects.create(
+                student=student,
+                amount=amount,
+                reason=reason
+            )
+        
         return Response({
             'message': 'Операция выполнена успешно',
             'new_balance': new_balance,
@@ -392,6 +402,13 @@ class TaskSubmissionReviewView(APIView):
                 source=CoinTransaction.Source.TASK,
                 balance_after=student.balance,
                 created_by=request.user
+            )
+            
+            # Уведомление о начислении coin
+            CoinNotification.objects.create(
+                student=student,
+                amount=submission.coins_awarded,
+                reason=f'За задание: {submission.task.title}'
             )
         
         return Response({
@@ -657,6 +674,13 @@ class ChessFinishGameView(APIView):
                 reason=f'Шахматы: {game.get_result_display()} против {opponent_name}',
                 source=CoinTransaction.Source.CHESS,
                 balance_after=user.balance
+            )
+            
+            # Уведомление о начислении coin
+            CoinNotification.objects.create(
+                student=user,
+                amount=coins,
+                reason=f'Шахматы: {game.get_result_display()} против {opponent_name}'
             )
         
         return Response({
@@ -989,6 +1013,37 @@ class ChessCancelInviteView(APIView):
         invite.save()
         
         return Response({'message': 'Приглашение отменено'})
+
+
+class CoinNotificationsView(APIView):
+    """
+    Получить непросмотренные уведомления о coin.
+    GET /api/notifications/coins/
+    """
+    permission_classes = [IsAuthenticated, IsStudent]
+    
+    def get(self, request):
+        notifications = CoinNotification.objects.filter(
+            student=request.user,
+            is_seen=False
+        ).order_by('-created_at')[:20]
+        return Response(CoinNotificationSerializer(notifications, many=True).data)
+
+
+class CoinNotificationsMarkSeenView(APIView):
+    """
+    Пометить уведомления о coin как просмотренные.
+    POST /api/notifications/coins/mark-seen/
+    """
+    permission_classes = [IsAuthenticated, IsStudent]
+    
+    def post(self, request):
+        ids = request.data.get('ids')
+        qs = CoinNotification.objects.filter(student=request.user, is_seen=False)
+        if isinstance(ids, list) and ids:
+            qs = qs.filter(id__in=ids)
+        updated = qs.update(is_seen=True)
+        return Response({'updated': updated})
 
 
 # ================== Магазин ==================
