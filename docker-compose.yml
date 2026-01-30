@@ -28,6 +28,20 @@ services:
       retries: 5
 
   # ===========================================================================
+  # Redis (Channels)
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: marsdevs_redis_dev
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
   # Django Backend (Development)
   # ===========================================================================
   backend:
@@ -52,11 +66,14 @@ services:
       - SECRET_KEY=docker-dev-secret-key-change-in-production
       - USE_SQLITE=False
       - DATABASE_URL=postgres://marsdevs:marsdevs123@db:5432/marsdevs_db
+      - REDIS_URL=redis://redis:6379/0
       - CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000
       - CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000
       - ALLOWED_HOSTS=localhost,127.0.0.1,backend
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   # ===========================================================================

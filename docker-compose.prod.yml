@@ -39,6 +39,21 @@ services:
       - internal
 
   # ===========================================================================
+  # Redis (Channels)
+  # ===========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: marsdevs_redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ===========================================================================
   # Django Backend (Internal - not exposed directly)
   # ===========================================================================
   backend:
@@ -52,6 +67,7 @@ services:
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
       - USE_SQLITE=False
       - DATABASE_URL=postgres://${DB_USER:-marsdevs}:${DB_PASSWORD:-marsdevs123}@db:5432/${DB_NAME:-marsdevs_db}
+      - REDIS_URL=redis://redis:6379/0
       - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost,https://localhost}
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-http://localhost,https://localhost}
@@ -63,6 +79,8 @@ services:
       - static_data:/app/staticfiles
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
