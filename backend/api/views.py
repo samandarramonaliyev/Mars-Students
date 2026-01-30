@@ -793,16 +793,20 @@ class ChessMyInvitesView(APIView):
     permission_classes = [IsAuthenticated, IsStudent]
     
     def get(self, request):
-        # Входящие ожидающие приглашения
+        # Входящие приглашения (ожидающие или уже принятые с активной игрой)
         incoming = ChessInvite.objects.filter(
-            to_player=request.user,
-            status=ChessInvite.Status.PENDING
+            to_player=request.user
+        ).filter(
+            Q(status=ChessInvite.Status.PENDING) |
+            Q(status=ChessInvite.Status.ACCEPTED, game__status=ChessGame.Status.IN_PROGRESS)
         ).order_by('-created_at')
         
-        # Исходящие ожидающие приглашения
+        # Исходящие приглашения (ожидающие или уже принятые с активной игрой)
         outgoing = ChessInvite.objects.filter(
-            from_player=request.user,
-            status=ChessInvite.Status.PENDING
+            from_player=request.user
+        ).filter(
+            Q(status=ChessInvite.Status.PENDING) |
+            Q(status=ChessInvite.Status.ACCEPTED, game__status=ChessGame.Status.IN_PROGRESS)
         ).order_by('-created_at')
         
         return Response({
